@@ -1,0 +1,18 @@
+{
+  "tts_model": "playai-tts",
+  "tts_voice": "Fritz-PlayAI",
+  "telegram": {
+    "enabled": true,
+    "bot_token": "",
+    "chat_ids": [
+      "YOUR_TELEGRAM_CHAT_ID"
+    ]
+  },
+  "discord": {
+    "enabled": false,
+    "bot_user_id": "",
+    "channel_ids": [
+      "YOUR_DISCORD_CHANNEL_ID"
+    ]
+  }
+}
