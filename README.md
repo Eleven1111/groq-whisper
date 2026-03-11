@@ -1,13 +1,18 @@
 # groq-whisper
 
-A lightweight OpenClaw skill for Groq-powered speech workflows:
+Groq-powered speech tools for OpenClaw: **transcribe local audio** and **run a Telegram/Discord voice bridge** with minimal dependencies and predictable CLI behavior.
 
-- **Local audio transcription** via Groq Whisper
-- **Telegram / Discord voice bridge** for:
-  - voice → transcript
-  - text prefix → TTS voice reply
+## What it does
 
-This skill is designed for deterministic operation: plain scripts, low dependency count, and predictable outputs.
+- **Transcribe local audio** with Groq Whisper
+- **Reply to voice messages with text transcripts**
+- **Turn prefixed text into TTS audio replies**
+- **Run unattended with cron**
+
+Good fit for:
+- Telegram voice notes
+- Chinese / English audio transcription
+- lightweight automation instead of a bloated speech stack
 
 ---
 
@@ -73,7 +78,7 @@ chmod 600 ~/.config/groq/api_key
 Or save it interactively:
 
 ```bash
-python3 skills/groq-whisper/scripts/transcribe.py --set-api-key
+python3 scripts/transcribe.py --set-api-key
 ```
 
 Do not commit API keys into the repo.
@@ -85,13 +90,13 @@ Do not commit API keys into the repo.
 ### Transcribe a local audio file
 
 ```bash
-python3 skills/groq-whisper/scripts/transcribe.py --file /path/to/audio.ogg
+python3 scripts/transcribe.py --file /path/to/audio.ogg
 ```
 
 Example:
 
 ```bash
-python3 skills/groq-whisper/scripts/transcribe.py \
+python3 scripts/transcribe.py \
   --file /path/to/interview.m4a \
   --language zh \
   --prompt '请输出纯文本，不要加时间戳。'
@@ -108,12 +113,12 @@ python3 skills/groq-whisper/scripts/transcribe.py \
 --set-api-key
 ```
 
-### OpenClaw wrapper
+### Friendly wrapper
 
 For simple shell integration, you can also use:
 
 ```bash
-bash skills/groq-whisper/scripts/openclaw_audio_cli.sh /path/to/audio.ogg
+bash scripts/openclaw_audio_cli.sh /path/to/audio.ogg
 ```
 
 This wrapper returns friendly Chinese error text instead of raw Python stack traces.
@@ -125,8 +130,7 @@ This wrapper returns friendly Chinese error text instead of raw Python stack tra
 ### 1. Copy config template
 
 ```bash
-cp skills/groq-whisper/config/groq_voice_bridge.example.json \
-   skills/groq-whisper/config/groq_voice_bridge.json
+cp config/groq_voice_bridge.example.json config/groq_voice_bridge.json
 ```
 
 ### 2. Edit the config
@@ -143,14 +147,13 @@ Enable only the platform you actually use.
 ### 3. Run once manually
 
 ```bash
-python3 skills/groq-whisper/scripts/groq_voice_bridge.py \
-  --config skills/groq-whisper/config/groq_voice_bridge.json
+python3 scripts/groq_voice_bridge.py --config config/groq_voice_bridge.json
 ```
 
 ### 4. Install cron
 
 ```bash
-bash skills/groq-whisper/scripts/install_voice_bridge_cron.sh
+bash scripts/install_voice_bridge_cron.sh
 ```
 
 This creates a once-per-minute cron job and writes logs to:
@@ -206,11 +209,11 @@ ffmpeg -i input.ogg -ar 16000 -ac 1 output.wav
 
 ---
 
-## Why this skill exists
+## Why this exists
 
 Because “just transcribe this audio” should not require a bloated stack, six wrappers, and a prayer.
 
-This skill keeps the path short:
+This repo keeps the path short:
 - one API key
 - one script for transcription
 - one script for bridge automation
