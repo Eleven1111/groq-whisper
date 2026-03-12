@@ -2,7 +2,7 @@
   "tts_model": "playai-tts",
   "tts_voice": "Fritz-PlayAI",
   "telegram": {
-    "enabled": true,
+    "enabled": false,
     "bot_token": "",
     "chat_ids": [
       "YOUR_TELEGRAM_CHAT_ID"

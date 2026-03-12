@@ -8,6 +8,7 @@ import getpass
 import json
 import mimetypes
 import os
+import stat
 import sys
 import uuid
 from pathlib import Path
@@ -19,6 +20,7 @@ DEFAULT_LANGUAGE = "auto"
 DEFAULT_PROMPT = "請用簡體中文輸出，不要包含任何繁體字。"
 DEFAULT_RESPONSE_FORMAT = "text"
 DEFAULT_KEY_FILE = os.path.expanduser("~/.config/groq/api_key")
+ENV_API_KEY = "GROQ_API_KEY"
 
 
 def eprint(*args: object) -> None:
@@ -26,11 +28,23 @@ def eprint(*args: object) -> None:
 
 
 def read_api_key(path: str) -> str:
+    env_key = os.getenv(ENV_API_KEY, "").strip()
+    if env_key:
+        return env_key
+
     p = Path(path).expanduser()
     if not p.exists():
         raise FileNotFoundError(
-            f"API key file not found: {p}. Create it first or use --set-api-key."
+            f"API key file not found: {p}. Create it first, set {ENV_API_KEY}, or use --set-api-key."
         )
+
+    try:
+        mode = stat.S_IMODE(p.stat().st_mode)
+        if mode & 0o077:
+            eprint(f"Warning: API key file permissions are too broad ({oct(mode)}); expected 0o600.")
+    except OSError:
+        pass
+
     key = p.read_text(encoding="utf-8").strip()
     if not key:
         raise ValueError(f"API key file is empty: {p}")
@@ -140,7 +154,7 @@ def parse_args() -> argparse.Namespace:
         choices=["text", "json", "verbose_json", "srt", "vtt"],
         help="API response format (default: text)",
     )
-    parser.add_argument("--api-key-file", default=DEFAULT_KEY_FILE, help="Path to Groq API key file")
+    parser.add_argument("--api-key-file", default=DEFAULT_KEY_FILE, help=f"Path to Groq API key file (ignored if {ENV_API_KEY} is set)")
     parser.add_argument(
         "--set-api-key",
         action="store_true",

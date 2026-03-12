@@ -18,15 +18,18 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any
-from urllib import parse, request
+from urllib import error, parse, request
 
 ROOT = Path(__file__).resolve().parents[3]
 TRANSCRIBE_PY = ROOT / "skills/groq-whisper/scripts/transcribe.py"
 DEFAULT_CFG = ROOT / "skills/groq-whisper/config/groq_voice_bridge.json"
 DEFAULT_STATE = ROOT / ".openclaw/groq_voice_bridge_state.json"
 KEY_FILE = Path("~/.config/groq/api_key").expanduser()
+ENV_API_KEY = "GROQ_API_KEY"
+RECENT_MESSAGE_LIMIT = 500
 
 STT_MODEL = "whisper-large-v3-turbo"
 STT_PROMPT = "Only transcribe Chinese or English speech; output plain text only."
@@ -49,7 +52,9 @@ def load_json(path: Path, default: Any) -> Any:
 
 def save_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def run(cmd: list[str]) -> tuple[int, str, str]:
@@ -58,6 +63,9 @@ def run(cmd: list[str]) -> tuple[int, str, str]:
 
 
 def read_key() -> str:
+    env_key = os.getenv(ENV_API_KEY, "").strip()
+    if env_key:
+        return env_key
     if not KEY_FILE.exists():
         raise FileNotFoundError(f"Groq key file missing: {KEY_FILE}")
     key = KEY_FILE.read_text(encoding="utf-8").strip()
@@ -137,10 +145,13 @@ def tg_api(token: str, method: str, params: dict[str, Any] | None = None) -> Any
     url = f"https://api.telegram.org/bot{token}/{method}"
     if q:
         url += f"?{q}"
-    with request.urlopen(url, timeout=120) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
+    try:
+        with request.urlopen(url, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except error.URLError as exc:
+        raise RuntimeError(f"Telegram API {method} request failed: {exc.reason}") from None
     if not data.get("ok"):
-        raise RuntimeError(f"Telegram API {method} failed")
+        raise RuntimeError(f"Telegram API {method} failed: {data}")
     return data["result"]
 
 
@@ -152,6 +163,16 @@ def tg_download(token: str, file_id: str, out_path: Path) -> None:
     url = f"https://api.telegram.org/file/bot{token}/{p}"
     with request.urlopen(url, timeout=180) as resp:
         out_path.write_bytes(resp.read())
+
+
+def remember_message(state: dict[str, Any], platform: str, message_id: str) -> bool:
+    recent = state.setdefault("recent_messages", {}).setdefault(platform, [])
+    if message_id in recent:
+        return False
+    q = deque(recent, maxlen=RECENT_MESSAGE_LIMIT)
+    q.append(message_id)
+    state["recent_messages"][platform] = list(q)
+    return True
 
 
 def handle_voice(channel: str, target: str, reply_to: str, download_fn) -> None:
@@ -199,6 +220,8 @@ def process_telegram(cfg: dict[str, Any], state: dict[str, Any]) -> None:
         elif isinstance(msg.get("document"), dict) and str(msg["document"].get("mime_type", "")).startswith("audio/"):
             file_id = msg["document"].get("file_id")
         if file_id:
+            if not remember_message(state, f"telegram:{chat_id}", mid):
+                continue
             try:
                 handle_voice("telegram", chat_id, mid, lambda p: tg_download(token, file_id, p))
             except Exception as exc:
@@ -208,6 +231,8 @@ def process_telegram(cfg: dict[str, Any], state: dict[str, Any]) -> None:
         # text -> tts
         tts_text = extract_tts_text(text)
         if tts_text:
+            if not remember_message(state, f"telegram:{chat_id}:tts", mid):
+                continue
             try:
                 handle_tts("telegram", chat_id, mid, tts_text, cfg)
             except Exception as exc:
@@ -254,6 +279,8 @@ def process_discord(cfg: dict[str, Any], state: dict[str, Any]) -> None:
                     audio_url = a.get("url")
                     break
             if audio_url:
+                if not remember_message(state, f"discord:{ch}", mid):
+                    continue
                 try:
                     handle_voice("discord", ch, mid, lambda p, u=audio_url: p.write_bytes(request.urlopen(u, timeout=180).read()))
                 except Exception as exc:
@@ -262,6 +289,8 @@ def process_discord(cfg: dict[str, Any], state: dict[str, Any]) -> None:
 
             tts_text = extract_tts_text(content)
             if tts_text:
+                if not remember_message(state, f"discord:{ch}:tts", mid):
+                    continue
                 try:
                     handle_tts("discord", ch, mid, tts_text, cfg)
                 except Exception as exc:

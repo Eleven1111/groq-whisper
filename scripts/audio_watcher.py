@@ -38,10 +38,12 @@ def transcribe(filepath):
             capture_output=True, text=True, timeout=60, env=env
         )
         if result.returncode == 0:
-            log(f"Success: {result.stdout.strip()}")
-            return result.stdout.strip()
+            text = result.stdout.strip()
+            log(f"Success: len={len(text)}")
+            return text
         else:
-            log(f"Error: {result.stderr}")
+            err = (result.stderr or '').strip().splitlines()[-1] if result.stderr else 'unknown error'
+            log(f"Error: {err}")
             return None
     except Exception as e:
         log(f"Exception: {e}")

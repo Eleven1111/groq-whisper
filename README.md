@@ -83,6 +83,12 @@ python3 scripts/transcribe.py --set-api-key
 
 Do not commit API keys into the repo.
 
+You can also provide the key via environment variable for ephemeral runs:
+
+```bash
+export GROQ_API_KEY='YOUR_GROQ_API_KEY'
+```
+
 ---
 
 ## Usage
@@ -136,6 +142,8 @@ cp config/groq_voice_bridge.example.json config/groq_voice_bridge.json
 ### 2. Edit the config
 
 Fill in what you need:
+
+> Safety default: the example config ships with all platforms disabled. Enable only what you actually use.
 
 - `telegram.bot_token`
 - `telegram.chat_ids`
@@ -197,6 +205,14 @@ If conversion is needed:
 ```bash
 ffmpeg -i input.ogg -ar 16000 -ac 1 output.wav
 ```
+
+---
+
+## Operational notes
+
+- State is written atomically to reduce corruption risk on crashes.
+- The bridge keeps a bounded recent-message cache to reduce duplicate processing on restart or retry.
+- `scripts/audio_watcher.py` supports fast local inbound-folder watching, but logs only metadata (not full transcripts) to reduce privacy leakage.
 
 ---
 
