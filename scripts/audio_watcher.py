@@ -5,13 +5,14 @@ import os
 import sys
 import time
 import subprocess
+from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-WATCH_DIR = "/Users/eleven/.openclaw/media/inbound"
-LOG_FILE = "/Users/eleven/.openclaw/workspace/logs/audio_watcher.log"
-PROCESSED_FILE = "/Users/eleven/.openclaw/workspace/logs/processed_audio.txt"
-TRANSCRIBE_SCRIPT = "/Users/eleven/.openclaw/workspace/skills/groq-whisper/scripts/transcribe.py"
+WATCH_DIR = os.environ.get("WATCH_DIR", os.path.expanduser("~/.openclaw/media/inbound"))
+LOG_FILE = os.environ.get("LOG_FILE", os.path.expanduser("~/.openclaw/workspace/logs/audio_watcher.log"))
+PROCESSED_FILE = os.environ.get("PROCESSED_FILE", os.path.expanduser("~/.openclaw/workspace/logs/processed_audio.txt"))
+TRANSCRIBE_SCRIPT = os.environ.get("TRANSCRIBE_SCRIPT", str((Path(__file__).resolve().parent / "transcribe.py")))
 
 def log(msg):
     with open(LOG_FILE, "a") as f:
